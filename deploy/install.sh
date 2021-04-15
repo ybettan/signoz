@@ -236,7 +236,11 @@ wait_for_containers_start() {
 
             if [[ LEN_SUPERVISORS -ne 19 && $timeout -eq 50 ]];then
                 echo "No Supervisors found... Re-applying docker compose\n"
-                sudo docker-compose -f ./docker/docker-compose-tiny.yaml up -d
+                if [[ $install_type == 'small' ]];then
+                    sudo docker-compose -f ./docker/docker-compose.yaml up -d
+                else
+                    sudo docker-compose -f ./docker/docker-compose-tiny.yaml up -d
+                fi
             fi
 
 
@@ -255,7 +259,11 @@ bye() {  # Prints a friendly good bye message and exits the script.
 
         echo "The containers didn't seem to start correctly. Please run the following command to check containers that may have errored out:"
         echo ""
-        echo -e "sudo docker-compose -f docker/docker-compose-tiny.yaml ps -a"
+        if [[ $install_type == 'small' ]];then
+            echo -e "sudo docker-compose -f docker/docker-compose.yaml ps -a"
+        else
+            echo -e "sudo docker-compose -f docker/docker-compose-tiny.yaml ps -a"
+        fi
         # echo "Please read our troubleshooting guide https://signoz.io/docs/deployment/docker#troubleshooting"
         echo "or reach us on SigNoz for support https://join.slack.com/t/signoz-community/shared_invite/zt-lrjknbbp-J_mI13rlw8pGF4EWBnorJA"
         echo "++++++++++++++++++++++++++++++++++++++++"
@@ -299,6 +307,17 @@ check_os
 
 
 SIGNOZ_INSTALLATION_ID=$(curl -s 'https://api64.ipify.org')
+
+
+while getopts t: flag
+do
+    case "${flag}" in
+        t) install_type=${OPTARG};;
+    esac
+done
+
+
+echo "Install Type: $install_type"
 
 # Run bye if failure happens
 trap bye EXIT
@@ -370,13 +389,22 @@ start_docker
 
 echo ""
 echo "Pulling the latest container images for SigNoz. To run as sudo it will ask for system password."
-sudo docker-compose -f ./docker/docker-compose-tiny.yaml pull
+if [[ $install_type == 'small' ]];then
+    sudo docker-compose -f ./docker/docker-compose.yaml pull
+else
+    sudo docker-compose -f ./docker/docker-compose-tiny.yaml pull
+fi
 echo ""
 echo "Starting the SigNoz containers. It may take a few minute ..."
 echo
 # The docker-compose command does some nasty stuff for the `--detach` functionality. So we add a `|| true` so that the
 # script doesn't exit because this command looks like it failed to do it's thing.
-sudo docker-compose -f ./docker/docker-compose-tiny.yaml up --detach --remove-orphans || true
+
+if [[ $install_type == 'small' ]];then
+    sudo docker-compose -f ./docker/docker-compose.yaml up --detach --remove-orphans || true
+else
+    sudo docker-compose -f ./docker/docker-compose-tiny.yaml up --detach --remove-orphans || true
+fi
 
 wait_for_containers_start 60
 echo ""
@@ -385,7 +413,11 @@ if [[ $status_code -ne 200 ]]; then
     echo "+++++++++++ ERROR ++++++++++++++++++++++"
     echo "The containers didn't seem to start correctly. Please run the following command to check containers that may have errored out:"
     echo ""
-    echo -e "sudo docker-compose -f docker/docker-compose-tiny.yaml ps -a"
+    if [[ $install_type == 'small' ]];then
+        echo -e "sudo docker-compose -f docker/docker-compose.yaml ps -a"
+    else
+        echo -e "sudo docker-compose -f docker/docker-compose-tiny.yaml ps -a"
+    fi
     echo "Please read our troubleshooting guide https://signoz.io/docs/deployment/docker#troubleshooting"
     echo "or reach us on SigNoz for support https://join.slack.com/t/signoz-community/shared_invite/zt-lrjknbbp-J_mI13rlw8pGF4EWBnorJA"
     echo "++++++++++++++++++++++++++++++++++++++++"
