@@ -227,6 +227,7 @@ services:
       - "55678"       # OpenCensus receiver
       - "55680:55680"       # OTLP HTTP/2.0 legacy port
       - "55681:55681"       # OTLP HTTP/1.0 receiver
+      - "9411:9411"       # zipkin receiver
       - "4317:4317"       # OTLP GRPC receiver
       - "55679:55679" # zpages extension
       - "13133"       # health_check
