@@ -2,6 +2,7 @@
 const { resolve } = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
+const nodeExternals = require('webpack-node-externals');
 
 module.exports = {
 	mode: "production",
@@ -12,7 +13,8 @@ module.exports = {
 		path: resolve(__dirname, "./build"),
 		publicPath: "/",
 	},
-
+	target: 'node', // in order to ignore built-in modules like path, fs, etc.
+	externals: [nodeExternals()],
 	resolve: {
 		alias: {
 			Src: resolve(__dirname, "./src/"),
