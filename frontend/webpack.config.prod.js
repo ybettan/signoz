@@ -13,7 +13,6 @@ module.exports = {
 		path: resolve(__dirname, "./build"),
 		publicPath: "/",
 	},
-	target: 'node', // in order to ignore built-in modules like path, fs, etc.
 	externals: [nodeExternals()],
 	resolve: {
 		alias: {
