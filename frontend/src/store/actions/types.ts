@@ -1,5 +1,5 @@
 import { FetchTracesAction, FetchTraceItemAction } from "./traces";
-import { updateTraceFiltersAction, updateInputTagAction } from "./traceFilters";
+import { updateTraceFiltersAction } from "./traceFilters";
 
 import { serviceMapItemAction, servicesAction } from "./serviceMap";
 import { getUsageDataAction } from "./usage";
@@ -11,13 +11,14 @@ export enum ActionTypes {
 	getServiceMapItems = "GET_SERVICE_MAP_ITEMS",
 	getServices = "GET_SERVICES",
 	getUsageData = "GET_USAGE_DATE",
+	fetchTraceItem = "FETCH_TRACE_ITEM",
+	fetchTraces = "FETCH_TRACES",
 }
 
 export type Action =
 	| FetchTraceItemAction
 	| FetchTracesAction
 	| updateTraceFiltersAction
-	| updateInputTagAction
 	| getUsageDataAction
 	| updateTimeIntervalAction
 	| servicesAction
