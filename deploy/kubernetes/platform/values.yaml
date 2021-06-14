@@ -1,13 +1,18 @@
 zookeeper:
     autopurge:
         purgeInterval: 1
+    persistence:
+        # storageClass: "ssd"
 
 kafka:
+    global:
+        # storageClass: "ssd"
     zookeeper:
         enabled: false
     externalZookeeper:
         servers: ["signoz-zookeeper:2181"]
     zookeeperConnectionTimeoutMs: 6000
+
 
 druid:
     image:
@@ -32,7 +37,11 @@ druid:
     historical:
         persistence:
             size: "20Gi"
-
+            # storageClass: "ssd"
+    middleManager:
+        persistence:
+            # storageClass: "ssd"
+            
     zkHosts: "signoz-zookeeper:2181"
 
     zookeeper:
