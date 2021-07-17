@@ -30,4 +30,5 @@ frontend/src/constants/env.ts
 **/storage
 **/locust-scripts/__pycache__/
 
+frontend/cypress
 frontend/*.env
