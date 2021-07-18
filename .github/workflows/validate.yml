@@ -1,4 +1,4 @@
-name: Validate Frontend - Signoz
+name: validate-frontend
 
 on: push
 
@@ -26,7 +26,7 @@ jobs:
       - name: Setup Cache & Install Dependencies
         uses: bahmutov/npm-install@v1
         with:
-          install-command: yarn --frozen-lockfile
+          install-command: yarn
 
       - name: Build Application
         run: yarn build
