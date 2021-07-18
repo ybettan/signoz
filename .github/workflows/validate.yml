@@ -29,5 +29,5 @@ jobs:
           install-command: yarn --frozen-lockfile
 
       - name: Build Application
-        run: yarn production:build
+        run: yarn build
 
