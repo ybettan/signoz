@@ -1,6 +1,9 @@
-name: Validate - Signoz
+name: Validate Frontend - Signoz
 
-on: pull_request
+on:
+  push:
+    paths:
+      - 'frontend/**'
 
 jobs:
   validate:
