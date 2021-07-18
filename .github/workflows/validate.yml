@@ -1,9 +1,10 @@
 name: Validate Frontend - Signoz
 
-on:
-  push:
-    paths:
-      - 'frontend/**'
+on: push
+
+defaults:
+  run:
+    working-directory: frontend
 
 jobs:
   validate:
