@@ -2,21 +2,37 @@ package app
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/gorilla/mux"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"github.com/posthog/posthog-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/discovery"
+	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/rules"
+	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
+	"github.com/prometheus/prometheus/util/strutil"
+	"github.com/prometheus/tsdb"
 	"go.uber.org/zap"
 )
 
@@ -79,11 +95,120 @@ func NewAPIHandler(reader *Reader, pc *posthog.Client, distinctId string) *APIHa
 
 	filename := flag.String("config", "./config/prometheus.yml", "(prometheus config to read metrics)")
 	flag.Parse()
-	conf, err := config.LoadFile(*filename)
-	if err != nil {
-		zap.S().Error("couldn't load configuration (--config.file=%q): %v", filename, err)
+	// conf, err := config.LoadFile(*filename)
+	// if err != nil {
+	// 	zap.S().Error("couldn't load configuration (--config.file=%q): %v", filename, err)
+	// }
+	// remoteStorage.ApplyConfig(conf)
+
+	cfg := struct {
+		configFile string
+
+		localStoragePath    string
+		notifier            notifier.Options
+		notifierTimeout     model.Duration
+		forGracePeriod      model.Duration
+		outageTolerance     model.Duration
+		resendDelay         model.Duration
+		tsdb                tsdb.Options
+		lookbackDelta       model.Duration
+		webTimeout          model.Duration
+		queryTimeout        model.Duration
+		queryConcurrency    int
+		queryMaxSamples     int
+		RemoteFlushDeadline model.Duration
+
+		prometheusURL string
+
+		logLevel promlog.AllowedLevel
+	}{
+		notifier: notifier.Options{
+			Registerer: prometheus.DefaultRegisterer,
+		},
 	}
-	remoteStorage.ApplyConfig(conf)
+
+	// fanoutStorage := remoteStorage
+	fanoutStorage := storage.NewFanout(logger, remoteStorage)
+	localStorage := remoteStorage
+
+	cfg.notifier.QueueCapacity = 10000
+	notifier := notifier.NewManager(&cfg.notifier, log.With(logger, "component", "notifier"))
+	// notifier.ApplyConfig(conf)
+
+	ExternalURL, err := computeExternalURL("", "0.0.0.0:9090")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "parse external URL %q", ExternalURL.String()))
+		os.Exit(2)
+	}
+
+	cfg.outageTolerance = model.Duration(time.Duration.Hours(1))
+	cfg.forGracePeriod = model.Duration(time.Duration.Minutes(10))
+	cfg.resendDelay = model.Duration(time.Duration.Minutes(1))
+
+	ruleManager := rules.NewManager(&rules.ManagerOptions{
+		Appendable:      fanoutStorage,
+		TSDB:            localStorage,
+		QueryFunc:       rules.EngineQueryFunc(queryEngine, fanoutStorage),
+		NotifyFunc:      sendAlerts(notifier, ExternalURL.String()),
+		Context:         context.Background(),
+		ExternalURL:     ExternalURL,
+		Registerer:      prometheus.DefaultRegisterer,
+		Logger:          log.With(logger, "component", "rule manager"),
+		OutageTolerance: time.Duration(cfg.outageTolerance),
+		ForGracePeriod:  time.Duration(cfg.forGracePeriod),
+		ResendDelay:     time.Duration(cfg.resendDelay),
+	})
+
+	ctxNotify, _ := context.WithCancel(context.Background())
+	discoveryManagerNotify := discovery.NewManager(ctxNotify, log.With(logger, "component", "discovery manager notify"), discovery.Name("notify"))
+
+	reloaders := []func(cfg *config.Config) error{
+		remoteStorage.ApplyConfig,
+		// The Scrape and notifier managers need to reload before the Discovery manager as
+		// they need to read the most updated config when receiving the new targets list.
+		notifier.ApplyConfig,
+		func(cfg *config.Config) error {
+			c := make(map[string]sd_config.ServiceDiscoveryConfig)
+			for _, v := range cfg.AlertingConfig.AlertmanagerConfigs {
+				// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
+				b, err := json.Marshal(v)
+				if err != nil {
+					return err
+				}
+				c[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
+			}
+			return discoveryManagerNotify.ApplyConfig(c)
+		},
+		func(cfg *config.Config) error {
+			// Get all rule files matching the configuration oaths.
+			var files []string
+			for _, pat := range cfg.RuleFiles {
+				fs, err := filepath.Glob(pat)
+				if err != nil {
+					// The only error can be a bad pattern.
+					return fmt.Errorf("error retrieving rule files for %s: %s", pat, err)
+				}
+				files = append(files, fs...)
+			}
+			return ruleManager.Update(time.Duration(cfg.GlobalConfig.EvaluationInterval), files)
+		},
+	}
+
+	// err = discoveryManagerNotify.Run()
+	// if err != nil {
+	// 	level.Info(logger).Log("msg", "Notify discovery manager stopped")
+	// }
+
+	cfg.configFile = *filename
+	if err := reloadConfig(cfg.configFile, logger, reloaders...); err != nil {
+		zap.S().Error("error loading config from %q: %s", cfg.configFile, err)
+	}
+
+	ruleManager.Run()
+	defer ruleManager.Stop()
+
+	notifier.Run(discoveryManagerNotify.SyncCh())
+	defer notifier.Stop()
 
 	aH := &APIHandler{
 		reader:        reader,
@@ -94,6 +219,92 @@ func NewAPIHandler(reader *Reader, pc *posthog.Client, distinctId string) *APIHa
 	}
 	aH.ready = aH.testReady
 	return aH
+}
+
+func reloadConfig(filename string, logger log.Logger, rls ...func(*config.Config) error) (err error) {
+	level.Info(logger).Log("msg", "Loading configuration file", "filename", filename)
+
+	conf, err := config.LoadFile(filename)
+	if err != nil {
+		return fmt.Errorf("couldn't load configuration (--config.file=%q): %v", filename, err)
+	}
+
+	failed := false
+	for _, rl := range rls {
+		if err := rl(conf); err != nil {
+			level.Error(logger).Log("msg", "Failed to apply configuration", "err", err)
+			failed = true
+		}
+	}
+	if failed {
+		return fmt.Errorf("one or more errors occurred while applying the new configuration (--config.file=%q)", filename)
+	}
+	level.Info(logger).Log("msg", "Completed loading of configuration file", "filename", filename)
+	return nil
+}
+
+func startsOrEndsWithQuote(s string) bool {
+	return strings.HasPrefix(s, "\"") || strings.HasPrefix(s, "'") ||
+		strings.HasSuffix(s, "\"") || strings.HasSuffix(s, "'")
+}
+
+// computeExternalURL computes a sanitized external URL from a raw input. It infers unset
+// URL parts from the OS and the given listen address.
+func computeExternalURL(u, listenAddr string) (*url.URL, error) {
+	if u == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+		_, port, err := net.SplitHostPort(listenAddr)
+		if err != nil {
+			return nil, err
+		}
+		u = fmt.Sprintf("http://%s:%s/", hostname, port)
+	}
+
+	if startsOrEndsWithQuote(u) {
+		return nil, fmt.Errorf("URL must not begin or end with quotes")
+	}
+
+	eu, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+
+	ppref := strings.TrimRight(eu.Path, "/")
+	if ppref != "" && !strings.HasPrefix(ppref, "/") {
+		ppref = "/" + ppref
+	}
+	eu.Path = ppref
+
+	return eu, nil
+}
+
+// sendAlerts implements the rules.NotifyFunc for a Notifier.
+func sendAlerts(n *notifier.Manager, externalURL string) rules.NotifyFunc {
+	return func(ctx context.Context, expr string, alerts ...*rules.Alert) {
+		var res []*notifier.Alert
+
+		for _, alert := range alerts {
+			a := &notifier.Alert{
+				StartsAt:     alert.FiredAt,
+				Labels:       alert.Labels,
+				Annotations:  alert.Annotations,
+				GeneratorURL: externalURL + strutil.TableLinkForExpression(expr),
+			}
+			if !alert.ResolvedAt.IsZero() {
+				a.EndsAt = alert.ResolvedAt
+			} else {
+				a.EndsAt = alert.ValidUntil
+			}
+			res = append(res, a)
+		}
+
+		if len(alerts) > 0 {
+			n.Send(res...)
+		}
+	}
 }
 
 type structuredResponse struct {

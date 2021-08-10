@@ -14,7 +14,6 @@ require (
 	github.com/go-kit/log v0.1.0
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/googleapis/gnostic v0.2.3-0.20180520015035-48a0ecefe2e4 // indirect
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -29,19 +28,21 @@ require (
 	github.com/json-iterator/go v1.1.10
 	github.com/kr/text v0.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/miekg/dns v1.0.4 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/onsi/gomega v1.14.0 // indirect
+	github.com/oklog/oklog v0.3.2
+	github.com/oklog/run v1.1.0 // indirect
+	github.com/onsi/gomega v1.15.0 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/posthog/posthog-go v0.0.0-20200525173953-e46dc8e6b89b
+	github.com/prometheus/client_golang v0.9.0-pre1.0.20181001174001-0a8115f42e03
 	github.com/prometheus/common v0.0.0-20180518154759-7600349dcfe1
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/prometheus/prometheus v2.5.0+incompatible
+	github.com/prometheus/tsdb v0.0.0-20181003080831-0ce41118ed20
 	github.com/rs/cors v1.7.0
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
