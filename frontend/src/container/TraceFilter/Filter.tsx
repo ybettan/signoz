@@ -5,7 +5,12 @@ import { connect, useSelector } from 'react-redux';
 import { bindActionCreators, Dispatch } from 'redux';
 import { ThunkDispatch } from 'redux-thunk';
 import { TagItem } from 'store/actions';
-import { UpdateSelectedTags } from 'store/actions/trace';
+import {
+	UpdateSelectedLatency,
+	UpdateSelectedOperation,
+	UpdateSelectedService,
+	UpdateSelectedTags,
+} from 'store/actions/trace';
 import {
 	UpdateSelectedData,
 	UpdateSelectedDataProps,

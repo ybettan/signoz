@@ -5,8 +5,8 @@ import {
 	GET_SERVICE_LIST_ERROR,
 	GET_SERVICE_LIST_LOADING_START,
 	GET_SERVICE_LIST_SUCCESS,
-	MetricsActions,
 	RESET_INITIAL_APPLICATION_DATA,
+	MetricsActions,
 } from 'types/actions/metrics';
 import InitialValueTypes from 'types/reducer/metrics';
 

@@ -38,7 +38,7 @@ export interface servicesAction {
 }
 
 export const getServiceMapItems = (globalTime: GlobalTime) => {
-	return async (dispatch: Dispatch): Promise<void> => {
+	return async (dispatch: Dispatch) => {
 		dispatch<serviceMapItemAction>({
 			type: ActionTypes.getServiceMapItems,
 			payload: [],
@@ -60,7 +60,7 @@ export const getServiceMapItems = (globalTime: GlobalTime) => {
 };
 
 export const getDetailedServiceMapItems = (globalTime: GlobalTime) => {
-	return async (dispatch: Dispatch): Promise<void> => {
+	return async (dispatch: Dispatch) => {
 		dispatch<servicesAction>({
 			type: ActionTypes.getServices,
 			payload: [],

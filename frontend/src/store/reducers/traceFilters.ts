@@ -14,10 +14,7 @@ const initialState: TraceFilters = {
 	kind: '',
 };
 
-const TraceFilterReducer = (
-	state = initialState,
-	action: ACTION,
-): TraceFilters => {
+const TraceFilterReducer = (state = initialState, action: ACTION) => {
 	switch (action.type) {
 		case ActionTypes.updateTraceFilters:
 			return action.payload;

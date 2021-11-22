@@ -18,6 +18,13 @@ export const ServiceMapPage = Loadable(
 		),
 );
 
+export const TraceDetailPage = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "TraceDetailPage" */ 'modules/Traces/TraceDetail'
+		),
+);
+
 export const TraceDetailPages = Loadable(
 	() => import(/* webpackChunkName: "TraceDetailPage" */ 'pages/TraceDetails'),
 );
