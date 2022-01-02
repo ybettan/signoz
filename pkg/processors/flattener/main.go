@@ -111,6 +111,7 @@ func (c *OtelCodec) Decode(data []byte) (interface{}, error) {
 	return &traces, err
 }
 
+// Comment
 func makeJaegerProtoReferences(
 	links pdata.SpanLinkSlice,
 	parentSpanID pdata.SpanID,
