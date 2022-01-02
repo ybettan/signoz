@@ -29,6 +29,8 @@ jobs:
       - name: Build and push docker image
         env:
           DOCKER_TAG: pull-${{ github.event.number }}
+          #FIXME: remove
+          REPONAME: ybettan
         run: make build-push-query-service
 
   image-build-and-push-frontend:
@@ -60,6 +62,8 @@ jobs:
       - name: Build and push docker image
         env:
           DOCKER_TAG: pull-${{ github.event.number }}
+          #FIXME: remove
+          REPONAME: ybettan
         run: make build-push-frontend
 
   deploy-on-k3s-cluster:
@@ -80,11 +84,14 @@ jobs:
           TAG: pull-${{ github.event.number }}
         run: |
           helm dependency update deploy/kubernetes/platform
+          #FIXME: change repo back to signoz in the image registry
           helm install signoz deploy/kubernetes/platform/ -n platform --create-namespace \
             --set cloud=null \
             --set frontend.service.type=LoadBalancer \
+            --set query-service.image.tag=$TAG \
             --set frontend.image.tag=$TAG \
-            --set query-service.image.tag=$TAG
+            --set query-service.image.repository=ybettan/query-service \
+            --set frontend.image.repository=ybettan/frontend
           kubectl describe deploy/signoz-frontend -n platform | grep Image
           kubectl describe statefulset/signoz-query-service -n platform | grep Image
           # comment the next 3 lines if you open an SSH connection for debugging
