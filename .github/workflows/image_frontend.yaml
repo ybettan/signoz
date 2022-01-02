@@ -1,0 +1,33 @@
+name: image-frontend
+
+on: [pull_request]
+
+jobs:
+
+  build-and-push-to-image-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install
+      - name: Run Prettier
+        working-directory: frontend
+        run: npm run prettify
+        continue-on-error: true
+      - name: Run ESLint
+        working-directory: frontend
+        run: npm run lint
+        continue-on-error: true
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push docker image
+        env:
+          DOCKER_TAG: pull-${{ github.event.number }}
+        #FIXME: uncomment and remove
+        #run: make build-push-frontend
+        run: make build-push-frontend REPONAME=ybettan
