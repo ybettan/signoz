@@ -86,6 +86,7 @@ jobs:
           helm dependency update deploy/kubernetes/platform
           #FIXME: change repo back to signoz in the image registry
           helm install signoz deploy/kubernetes/platform/ -n platform --create-namespace \
+            --wait \
             --set cloud=null \
             --set frontend.service.type=LoadBalancer \
             --set query-service.image.tag=$TAG \
@@ -94,15 +95,8 @@ jobs:
             --set frontend.image.repository=ybettan/frontend
           kubectl describe deploy/signoz-frontend -n platform | grep Image
           kubectl describe statefulset/signoz-query-service -n platform | grep Image
-          # comment the next 3 lines if you open an SSH connection for debugging
-          kubectl -n platform get deploy --output name | xargs -r -n1 -t kubectl -n platform rollout status --timeout=300s
-          kubectl -n platform get statefulset --output name | xargs -r -n1 -t kubectl -n platform rollout status --timeout=300s
-          kubectl -n platform get daemonset --output name | xargs -r -n1 -t kubectl -n platform rollout status --timeout=300s
           kubectl get pods -n platform
           kubectl get svc -n platform
-        # Uncomment for debugging using SSH
-      #- name: Setup upterm session
-      #  uses: lhotari/action-upterm@v1
       - name: Kick off a sample-app workload
         run: |
           kubectl create ns sample-application
