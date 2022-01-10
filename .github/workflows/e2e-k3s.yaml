@@ -9,34 +9,21 @@ on:
 
 jobs:
 
-  image-build-and-push-query-service:
+  e2e-k3s:
     runs-on: ubuntu-latest
     if: ${{ github.event.label.name == 'ok-to-test' }}
     steps:
+
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          version: latest
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push docker image
+      - name: Build query-service image
         env:
           DOCKER_TAG: pull-${{ github.event.number }}
-        run: make build-push-query-service
+        run: |
+          make build-query-service-amd64
+          docker images | grep query-service
+        #run: make build-query-service-amd64
 
-  image-build-and-push-frontend:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.label.name == 'ok-to-test' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Install dependencies
         working-directory: frontend
         run: yarn install
@@ -48,44 +35,38 @@ jobs:
         working-directory: frontend
         run: npm run lint
         continue-on-error: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          version: latest
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push docker image
+      - name: Build frontend image
         env:
           DOCKER_TAG: pull-${{ github.event.number }}
-        run: make build-push-frontend
+        run: |
+          make build-frontend-amd64
+          docker images | grep frontend
+        #run: make build-frontend-amd64
 
-  deploy-on-k3s-cluster:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.label.name == 'ok-to-test' }}
-    needs:
-      - image-build-and-push-query-service
-      - image-build-and-push-frontend
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Create a k3s cluster
         uses: AbsaOSS/k3d-action@v2
         with:
           cluster-name: "test-cluster"
+          args: >-
+            --agents 3
+      - name: Inject the built images to the cluster
+        env:
+          DOCKER_TAG: pull-${{ github.event.number }}
+        run: |
+          docker images | grep -E 'query-service|frontedn' #FIXME: remove
+          k3d image import signoz/query-serivce:$DOCKER_TAG -c test-cluster
+          k3d image import signoz/frontend:$DOCKER_TAG -c test-cluster
       - name: Deploy the app
         env:
-          TAG: pull-${{ github.event.number }}
+          DOCKER_TAG: pull-${{ github.event.number }}
         run: |
           helm dependency update deploy/kubernetes/platform
           helm install signoz deploy/kubernetes/platform/ -n platform --create-namespace \
             --wait --timeout 10m0s \
             --set cloud=null \
             --set frontend.service.type=LoadBalancer \
-            --set frontend.image.tag=$TAG \
-            --set query-service.image.tag=$TAG
+            --set query-service.image.tag=$DOCKER_TAG \
+            --set frontend.image.tag=$DOCKER_TAG
           kubectl describe deploy/signoz-frontend -n platform | grep Image
           kubectl describe statefulset/signoz-query-service -n platform | grep Image
           kubectl get pods -n platform
