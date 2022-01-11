@@ -38,6 +38,7 @@ func main() {
 		// DruidClientUrl: constants.DruidClientUrl,
 	}
 
+	// this is a new comment
 	server, err := app.NewServer(serverOptions)
 	if err != nil {
 		logger.Fatal("Failed to create server", zap.Error(err))
